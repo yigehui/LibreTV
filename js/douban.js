@@ -441,13 +441,12 @@ function renderRecommend(tag, pageLimit, pageStart) {
         });
 }
 
-async function buildDoubanCoverProxyUrl(originalCoverUrl) {
+function buildDoubanCoverProxyUrl(originalCoverUrl) {
     if (!originalCoverUrl) return '';
-    const baseProxyUrl = PROXY_URL + encodeURIComponent(originalCoverUrl);
-    if (window.ProxyAuth?.addAuthToProxyUrl) {
-        return await window.ProxyAuth.addAuthToProxyUrl(baseProxyUrl);
+    if (typeof window.processImageUrl === 'function') {
+        return window.processImageUrl(originalCoverUrl);
     }
-    return baseProxyUrl;
+    return originalCoverUrl;
 }
 
 async function fetchDoubanData(url) {
@@ -525,7 +524,7 @@ async function renderDoubanCards(data, container) {
         // 循环创建每个影视卡片
         const subjectsWithProxy = await Promise.all(data.subjects.map(async item => ({
             ...item,
-            proxiedCoverUrl: await buildDoubanCoverProxyUrl(item.cover)
+            proxiedCoverUrl: buildDoubanCoverProxyUrl(item.cover)
         })));
 
         subjectsWithProxy.forEach(item => {

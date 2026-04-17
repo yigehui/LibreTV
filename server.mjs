@@ -228,6 +228,37 @@ app.get('/proxy/:encodedUrl', async (req, res) => {
   }
 });
 
+app.get('/api/image-proxy', async (req, res) => {
+  try {
+    const targetUrl = String(req.query.url || '');
+    if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) {
+      return res.status(400).json({ error: 'Invalid url parameter' });
+    }
+
+    const response = await axios({
+      method: 'get',
+      url: targetUrl,
+      responseType: 'stream',
+      timeout: config.timeout,
+      headers: {
+        'User-Agent': config.userAgent,
+        'Referer': 'https://movie.douban.com/',
+        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+      }
+    });
+
+    const contentType = response.headers['content-type'] || 'image/jpeg';
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=2592000, s-maxage=2592000');
+    res.setHeader('Content-Type', contentType);
+
+    response.data.pipe(res);
+  } catch (error) {
+    console.error('图片代理请求错误:', error.message);
+    res.status(500).json({ error: 'Failed to fetch image' });
+  }
+});
+
 app.use(express.static(path.join(__dirname), {
   maxAge: config.cacheMaxAge
 }));

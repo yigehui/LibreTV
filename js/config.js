@@ -131,29 +131,7 @@ function extendAPISites(newSites) {
 window.API_SITES = API_SITES;
 window.extendAPISites = extendAPISites;
 
-// 统一图片URL处理：对豆瓣图片强制走代理，并自动补鉴权参数
-function getProxyAuthHash() {
-    const envHash = window.__ENV__ && typeof window.__ENV__.PASSWORD === 'string'
-        ? window.__ENV__.PASSWORD
-        : '';
-    if (envHash.length === 64) return envHash;
-
-    const proxyAuthHash = localStorage.getItem('proxyAuthHash') || '';
-    if (proxyAuthHash.length === 64) return proxyAuthHash;
-
-    try {
-        const verifiedRaw = localStorage.getItem(PASSWORD_CONFIG.localStorageKey) || '';
-        if (!verifiedRaw) return '';
-        const verifiedData = JSON.parse(verifiedRaw);
-        const passwordHash = verifiedData && typeof verifiedData.passwordHash === 'string'
-            ? verifiedData.passwordHash
-            : '';
-        return passwordHash.length === 64 ? passwordHash : '';
-    } catch (error) {
-        return '';
-    }
-}
-
+// 统一图片URL处理：对豆瓣图片强制走 /api/image-proxy（不依赖 /proxy 鉴权）
 function shouldProxyImageUrl(url) {
     if (!url || !/^https?:\/\//i.test(url)) return false;
     try {
@@ -165,10 +143,7 @@ function shouldProxyImageUrl(url) {
 }
 
 function buildProxyImageUrl(url) {
-    const baseProxyUrl = `${PROXY_URL}${encodeURIComponent(url)}`;
-    const authHash = getProxyAuthHash();
-    if (!authHash) return baseProxyUrl;
-    return `${baseProxyUrl}?auth=${encodeURIComponent(authHash)}&t=${Date.now()}`;
+    return `/api/image-proxy?url=${encodeURIComponent(url)}`;
 }
 
 window.processImageUrl = function processImageUrl(url) {

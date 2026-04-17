@@ -124,11 +124,16 @@ function validateAuth(event) {
 }
 
 async function fetchContentWithType(targetUrl, requestHeaders) {
+    const targetHost = new URL(targetUrl).hostname.toLowerCase();
+    const isDoubanResource = targetHost.endsWith('.doubanio.com') || targetHost.endsWith('.douban.com');
+    const targetReferer = isDoubanResource
+        ? 'https://movie.douban.com/'
+        : (requestHeaders['referer'] || new URL(targetUrl).origin);
     const headers = {
         'User-Agent': getRandomUserAgent(),
         'Accept': requestHeaders['accept'] || '*/*',
         'Accept-Language': requestHeaders['accept-language'] || 'zh-CN,zh;q=0.9,en;q=0.8',
-        'Referer': requestHeaders['referer'] || new URL(targetUrl).origin,
+        'Referer': targetReferer,
     };
     Object.keys(headers).forEach(key => headers[key] === undefined || headers[key] === null || headers[key] === '' ? delete headers[key] : {});
     logDebug(`Fetching target: ${targetUrl} with headers: ${JSON.stringify(headers)}`);

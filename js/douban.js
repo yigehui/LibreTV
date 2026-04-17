@@ -441,6 +441,15 @@ function renderRecommend(tag, pageLimit, pageStart) {
         });
 }
 
+async function buildDoubanCoverProxyUrl(originalCoverUrl) {
+    if (!originalCoverUrl) return '';
+    const baseProxyUrl = PROXY_URL + encodeURIComponent(originalCoverUrl);
+    if (window.ProxyAuth?.addAuthToProxyUrl) {
+        return await window.ProxyAuth.addAuthToProxyUrl(baseProxyUrl);
+    }
+    return baseProxyUrl;
+}
+
 async function fetchDoubanData(url) {
     // 添加超时控制
     const controller = new AbortController();
@@ -500,7 +509,7 @@ async function fetchDoubanData(url) {
 }
 
 // 抽取渲染豆瓣卡片的逻辑到单独函数
-function renderDoubanCards(data, container) {
+async function renderDoubanCards(data, container) {
     // 创建文档片段以提高性能
     const fragment = document.createDocumentFragment();
     
@@ -514,7 +523,12 @@ function renderDoubanCards(data, container) {
         fragment.appendChild(emptyEl);
     } else {
         // 循环创建每个影视卡片
-        data.subjects.forEach(item => {
+        const subjectsWithProxy = await Promise.all(data.subjects.map(async item => ({
+            ...item,
+            proxiedCoverUrl: await buildDoubanCoverProxyUrl(item.cover)
+        })));
+
+        subjectsWithProxy.forEach(item => {
             const card = document.createElement("div");
             card.className = "bg-[#111] hover:bg-[#222] transition-all duration-300 rounded-lg overflow-hidden flex flex-col transform hover:scale-105 shadow-md hover:shadow-lg";
             
@@ -528,19 +542,18 @@ function renderDoubanCards(data, container) {
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;');
             
-            // 处理图片URL
-            // 1. 直接使用豆瓣图片URL (添加no-referrer属性)
             const originalCoverUrl = item.cover;
-            
-            // 2. 也准备代理URL作为备选
-            const proxiedCoverUrl = PROXY_URL + encodeURIComponent(originalCoverUrl);
+            const proxiedCoverUrl = item.proxiedCoverUrl;
+            const useProxyFirst = /(^|\/)(img\d*\.)?doubanio\.com\//i.test(originalCoverUrl);
+            const initialCoverUrl = useProxyFirst ? proxiedCoverUrl : originalCoverUrl;
+            const fallbackCoverUrl = useProxyFirst ? originalCoverUrl : proxiedCoverUrl;
             
             // 为不同设备优化卡片布局
             card.innerHTML = `
                 <div class="relative w-full aspect-[2/3] overflow-hidden cursor-pointer" onclick="fillAndSearchWithDouban('${safeTitle}')">
-                    <img src="${originalCoverUrl}" alt="${safeTitle}" 
+                    <img src="${initialCoverUrl}" alt="${safeTitle}" 
                         class="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
-                        onerror="this.onerror=null; this.src='${proxiedCoverUrl}'; this.classList.add('object-contain');"
+                        onerror="this.onerror=null; this.src='${fallbackCoverUrl}'; this.classList.add('object-contain');"
                         loading="lazy" referrerpolicy="no-referrer">
                     <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-60"></div>
                     <div class="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-sm">

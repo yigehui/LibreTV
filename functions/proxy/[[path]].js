@@ -116,18 +116,6 @@ export async function onRequest(context) {
         return true;
     }
 
-    // 验证鉴权（主函数调用）
-    if (!validateAuth(request, env)) {
-        return new Response('Unauthorized', { 
-            status: 401,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
-                'Access-Control-Allow-Headers': '*'
-            }
-        });
-    }
-
     // 输出调试日志 (需要设置 DEBUG: true 环境变量)
     function logDebug(message) {
         if (DEBUG_ENABLED) {
@@ -248,13 +236,18 @@ export async function onRequest(context) {
 
     // 获取远程内容及其类型
     async function fetchContentWithType(targetUrl) {
+        const targetHost = new URL(targetUrl).hostname.toLowerCase();
+        const isDoubanResource = targetHost.endsWith('.doubanio.com') || targetHost.endsWith('.douban.com');
+        const targetReferer = isDoubanResource
+            ? 'https://movie.douban.com/'
+            : (request.headers.get('Referer') || new URL(targetUrl).origin);
         const headers = new Headers({
             'User-Agent': getRandomUserAgent(),
             'Accept': '*/*',
             // 尝试传递一些原始请求的头信息
             'Accept-Language': request.headers.get('Accept-Language') || 'zh-CN,zh;q=0.9,en;q=0.8',
-            // 尝试设置 Referer 为目标网站的域名，或者传递原始 Referer
-            'Referer': request.headers.get('Referer') || new URL(targetUrl).origin
+            // 豆瓣资源强制使用豆瓣 Referer，规避 418 防盗链
+            'Referer': targetReferer
         });
 
         try {
